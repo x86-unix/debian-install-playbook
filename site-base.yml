@@ -109,6 +109,35 @@
       async: 300
       poll: 15
 
+    - name: Configure WiFi (NetworkManager)
+      copy:
+        dest: "{{ chroot_dir }}/etc/NetworkManager/system-connections/{{ wifi_ssid }}.nmconnection"
+        mode: '0600'
+        content: |
+          [connection]
+          id={{ wifi_ssid }}
+          type=wifi
+          interface-name={{ wifi_interface }}
+
+          [wifi]
+          mode=infrastructure
+          ssid={{ wifi_ssid }}
+
+          [wifi-security]
+          auth-alg=open
+          key-mgmt=wpa-psk
+          psk={{ wifi_password }}
+
+          [ipv4]
+          method=auto
+
+          [ipv6]
+          addr-gen-mode=default
+          method=auto
+
+    - name: Enable NetworkManager
+      shell: chroot {{ chroot_dir }} systemctl enable NetworkManager
+
     - name: Enable SSH
       shell: chroot {{ chroot_dir }} systemctl enable ssh
 

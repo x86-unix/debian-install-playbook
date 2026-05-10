@@ -11,3 +11,7 @@ timezone: Asia/Tokyo
 locale: ja_JP.UTF-8
 
 root_password: "root"
+
+wifi_interface: wlp1s0
+wifi_ssid: yg-ap1
+wifi_password: REDACTED
