@@ -110,30 +110,11 @@
       poll: 15
 
     - name: Configure WiFi (NetworkManager)
-      copy:
-        dest: "{{ chroot_dir }}/etc/NetworkManager/system-connections/{{ wifi_ssid }}.nmconnection"
-        mode: '0600'
-        content: |
-          [connection]
-          id={{ wifi_ssid }}
-          type=wifi
-          interface-name={{ wifi_interface }}
-
-          [wifi]
-          mode=infrastructure
-          ssid={{ wifi_ssid }}
-
-          [wifi-security]
-          auth-alg=open
-          key-mgmt=wpa-psk
-          psk={{ wifi_password }}
-
-          [ipv4]
-          method=auto
-
-          [ipv6]
-          addr-gen-mode=default
-          method=auto
+      shell: |
+        mkdir -p {{ chroot_dir }}/etc/NetworkManager/system-connections
+        printf '[connection]\nid={{ wifi_ssid }}\ntype=wifi\ninterface-name={{ wifi_interface }}\n\n[wifi]\nmode=infrastructure\nssid={{ wifi_ssid }}\n\n[wifi-security]\nauth-alg=open\nkey-mgmt=wpa-psk\npsk={{ wifi_password }}\n\n[ipv4]\nmethod=auto\n\n[ipv6]\naddr-gen-mode=default\nmethod=auto\n' \
+          > {{ chroot_dir }}/etc/NetworkManager/system-connections/{{ wifi_ssid }}.nmconnection
+        chmod 600 {{ chroot_dir }}/etc/NetworkManager/system-connections/{{ wifi_ssid }}.nmconnection
 
     - name: Enable NetworkManager
       shell: chroot {{ chroot_dir }} systemctl enable NetworkManager
