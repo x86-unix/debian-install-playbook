@@ -110,12 +110,18 @@
       async: 300
       poll: 15
 
+    - name: Detect WiFi interface
+      shell: iw dev | awk '/Interface/{print $2}' | head -1
+      register: detected_wifi
+      changed_when: false
+
     - name: Configure WiFi (NetworkManager)
       shell: |
         mkdir -p {{ chroot_dir }}/etc/NetworkManager/system-connections
-        printf '[connection]\nid={{ wifi_ssid }}\ntype=wifi\ninterface-name={{ wifi_interface }}\n\n[wifi]\nmode=infrastructure\nssid={{ wifi_ssid }}\n\n[wifi-security]\nauth-alg=open\nkey-mgmt=wpa-psk\npsk={{ wifi_password }}\n\n[ipv4]\nmethod=auto\n\n[ipv6]\naddr-gen-mode=default\nmethod=auto\n' \
+        printf '[connection]\nid={{ wifi_ssid }}\ntype=wifi\ninterface-name={{ detected_wifi.stdout }}\n\n[wifi]\nmode=infrastructure\nssid={{ wifi_ssid }}\n\n[wifi-security]\nauth-alg=open\nkey-mgmt=wpa-psk\npsk={{ wifi_password }}\n\n[ipv4]\nmethod=auto\n\n[ipv6]\naddr-gen-mode=default\nmethod=auto\n' \
           > {{ chroot_dir }}/etc/NetworkManager/system-connections/{{ wifi_ssid }}.nmconnection
         chmod 600 {{ chroot_dir }}/etc/NetworkManager/system-connections/{{ wifi_ssid }}.nmconnection
+      when: detected_wifi.stdout != ''
 
     - name: Enable NetworkManager
       shell: chroot {{ chroot_dir }} systemctl enable NetworkManager
