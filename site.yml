@@ -76,7 +76,20 @@
           openssh-server \
           locales \
           sudo \
-          vim
+          vim \
+          bash-completion \
+          curl \
+          wget \
+          net-tools \
+          netcat-openbsd \
+          iputils-ping \
+          iproute2 \
+          dnsutils \
+          tcpdump \
+          rsync \
+          less \
+          man-db \
+          htop
       async: 1800
       poll: 30
 
