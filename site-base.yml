@@ -110,6 +110,19 @@
       async: 300
       poll: 15
 
+    - name: Detect wired interface
+      shell: ip -o link show | awk -F': ' '/^[0-9]+: e/{print $2}' | head -1
+      register: detected_wired
+      changed_when: false
+
+    - name: Configure wired (NetworkManager)
+      shell: |
+        mkdir -p {{ chroot_dir }}/etc/NetworkManager/system-connections
+        printf '[connection]\nid=wired\ntype=ethernet\ninterface-name={{ detected_wired.stdout }}\n\n[ipv4]\nmethod=auto\n\n[ipv6]\naddr-gen-mode=default\nmethod=auto\n' \
+          > {{ chroot_dir }}/etc/NetworkManager/system-connections/wired.nmconnection
+        chmod 600 {{ chroot_dir }}/etc/NetworkManager/system-connections/wired.nmconnection
+      when: detected_wired.stdout != ''
+
     - name: Detect WiFi interface
       shell: iw dev | awk '/Interface/{print $2}' | head -1
       register: detected_wifi
