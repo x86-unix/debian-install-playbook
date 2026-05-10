@@ -1,0 +1,118 @@
+---
+- name: Install Debian sid via debootstrap
+  hosts: target
+  gather_facts: false
+
+  tasks:
+    - name: Install debootstrap
+      shell: pacman -Sy --noconfirm debootstrap 2>/dev/null || apt-get install -y debootstrap 2>/dev/null || true
+
+    - name: Format EFI partition
+      filesystem:
+        fstype: vfat
+        dev: "{{ efi_partition }}"
+        opts: -F32
+
+    - name: Format root partition
+      filesystem:
+        fstype: ext4
+        dev: "{{ root_partition }}"
+        force: true
+
+    - name: Mount root partition
+      mount:
+        path: "{{ chroot_dir }}"
+        src: "{{ root_partition }}"
+        fstype: ext4
+        state: mounted
+
+    - name: Create EFI mount point
+      file:
+        path: "{{ chroot_dir }}/boot/efi"
+        state: directory
+
+    - name: Mount EFI partition
+      mount:
+        path: "{{ chroot_dir }}/boot/efi"
+        src: "{{ efi_partition }}"
+        fstype: vfat
+        state: mounted
+
+    - name: Run debootstrap
+      shell: >
+        debootstrap --arch=amd64 {{ debian_suite }} {{ chroot_dir }} {{ debian_mirror }}
+      args:
+        creates: "{{ chroot_dir }}/bin/bash"
+
+    - name: Write fstab
+      copy:
+        dest: "{{ chroot_dir }}/etc/fstab"
+        content: |
+          {{ root_partition }}  /         ext4  errors=remount-ro  0  1
+          {{ efi_partition }}   /boot/efi vfat  umask=0077         0  1
+
+    - name: Set hostname
+      copy:
+        dest: "{{ chroot_dir }}/etc/hostname"
+        content: "{{ hostname }}\n"
+
+    - name: Set /etc/hosts
+      copy:
+        dest: "{{ chroot_dir }}/etc/hosts"
+        content: |
+          127.0.0.1   localhost
+          127.0.1.1   {{ hostname }}
+
+    - name: Write sources.list
+      copy:
+        dest: "{{ chroot_dir }}/etc/apt/sources.list"
+        content: |
+          deb {{ debian_mirror }} {{ debian_suite }} main contrib non-free non-free-firmware
+          deb {{ debian_mirror }} {{ debian_suite }}-updates main contrib non-free non-free-firmware
+
+    - name: Set timezone
+      shell: |
+        chroot {{ chroot_dir }} ln -sf /usr/share/zoneinfo/{{ timezone }} /etc/localtime
+        chroot {{ chroot_dir }} dpkg-reconfigure -f noninteractive tzdata
+
+    - name: Set locale
+      shell: |
+        chroot {{ chroot_dir }} bash -c "echo '{{ locale }} UTF-8' > /etc/locale.gen && locale-gen"
+        chroot {{ chroot_dir }} bash -c "echo 'LANG={{ locale }}' > /etc/default/locale"
+
+    - name: Install kernel and base packages
+      shell: |
+        mount --bind /dev  {{ chroot_dir }}/dev
+        mount --bind /proc {{ chroot_dir }}/proc
+        mount --bind /sys  {{ chroot_dir }}/sys
+        chroot {{ chroot_dir }} apt-get update
+        chroot {{ chroot_dir }} apt-get install -y \
+          linux-image-amd64 \
+          grub-efi-amd64 \
+          efibootmgr \
+          systemd-sysv \
+          network-manager \
+          openssh-server \
+          locales \
+          sudo \
+          vim
+
+    - name: Set root password
+      shell: |
+        chroot {{ chroot_dir }} bash -c "echo 'root:{{ root_password }}' | chpasswd"
+
+    - name: Install GRUB
+      shell: |
+        chroot {{ chroot_dir }} grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=debian
+        chroot {{ chroot_dir }} update-grub
+
+    - name: Enable SSH
+      shell: chroot {{ chroot_dir }} systemctl enable ssh
+
+    - name: Unmount chroot
+      shell: |
+        umount {{ chroot_dir }}/dev  || true
+        umount {{ chroot_dir }}/proc || true
+        umount {{ chroot_dir }}/sys  || true
+        umount {{ chroot_dir }}/boot/efi
+        umount {{ chroot_dir }}
