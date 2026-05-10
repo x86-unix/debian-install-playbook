@@ -111,7 +111,7 @@
       poll: 15
 
     - name: Detect wired interface
-      shell: ip -o link show | awk -F': ' '/^[0-9]+: e/{print $2}' | head -1
+      shell: "ip -o link show | awk -F': ' '/^[0-9]+: e/{print $2}' | head -1"
       register: detected_wired
       changed_when: false
 
@@ -138,6 +138,11 @@
 
     - name: Enable NetworkManager
       shell: chroot {{ chroot_dir }} systemctl enable NetworkManager
+
+    - name: Allow SSH root login with password
+      shell: |
+        sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' {{ chroot_dir }}/etc/ssh/sshd_config
+        grep -q '^PermitRootLogin' {{ chroot_dir }}/etc/ssh/sshd_config || echo 'PermitRootLogin yes' >> {{ chroot_dir }}/etc/ssh/sshd_config
 
     - name: Enable SSH
       shell: chroot {{ chroot_dir }} systemctl enable ssh
