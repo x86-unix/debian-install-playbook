@@ -90,7 +90,7 @@
           less \
           man-db \
           htop \
-          firmware-iwlwifi
+          firmware-linux
       async: 1800
       poll: 30
 
