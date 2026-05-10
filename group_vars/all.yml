@@ -6,7 +6,7 @@ chroot_dir: /mnt/debian
 debian_suite: sid
 debian_mirror: http://deb.debian.org/debian
 
-hostname: debian-sid
+hostname: base
 timezone: Asia/Tokyo
 locale: ja_JP.UTF-8
 
