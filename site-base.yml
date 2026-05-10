@@ -89,7 +89,8 @@
           rsync \
           less \
           man-db \
-          htop
+          htop \
+          firmware-iwlwifi
       async: 1800
       poll: 30
 
