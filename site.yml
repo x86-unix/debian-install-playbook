@@ -13,16 +13,6 @@
       args:
         creates: /usr/bin/debootstrap
 
-    - name: Unmount stale mounts
-      shell: |
-        umount {{ chroot_dir }}/dev/pts  2>/dev/null || true
-        umount {{ chroot_dir }}/dev      2>/dev/null || true
-        umount {{ chroot_dir }}/proc     2>/dev/null || true
-        umount {{ chroot_dir }}/sys      2>/dev/null || true
-        umount {{ chroot_dir }}/boot/efi 2>/dev/null || true
-        umount -l {{ chroot_dir }}        2>/dev/null || true
-        sed -i '\|{{ chroot_dir }}|d' /etc/fstab
-
     - name: Mount root partition
       shell: mkdir -p {{ chroot_dir }} && mount {{ root_partition }} {{ chroot_dir }}
 
@@ -63,9 +53,9 @@
 
     - name: Bind mount dev/proc/sys
       shell: |
-        mountpoint -q {{ chroot_dir }}/dev  || mount --bind /dev  {{ chroot_dir }}/dev
-        mountpoint -q {{ chroot_dir }}/proc || mount --bind /proc {{ chroot_dir }}/proc
-        mountpoint -q {{ chroot_dir }}/sys  || mount --bind /sys  {{ chroot_dir }}/sys
+        mount --bind /dev  {{ chroot_dir }}/dev
+        mount --bind /proc {{ chroot_dir }}/proc
+        mount --bind /sys  {{ chroot_dir }}/sys
 
     - name: Set timezone
       shell: |
@@ -93,7 +83,6 @@
     - name: Set locale
       shell: |
         sed -i 's/^# *{{ locale }} UTF-8/{{ locale }} UTF-8/' {{ chroot_dir }}/etc/locale.gen
-        grep -q '^{{ locale }} UTF-8' {{ chroot_dir }}/etc/locale.gen || echo '{{ locale }} UTF-8' >> {{ chroot_dir }}/etc/locale.gen
         chroot {{ chroot_dir }} locale-gen
         echo 'LANG={{ locale }}' > {{ chroot_dir }}/etc/default/locale
 
