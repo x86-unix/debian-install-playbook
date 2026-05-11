@@ -388,6 +388,12 @@
               <keybind key="W-space"><action name="Execute"><command>wofi --show drun --allow-images --width=25%</command></action></keybind>
               <keybind key="W-Return"><action name="Execute"><command>foot</command></action></keybind>
               <keybind key="A-F4"><action name="Close"/></keybind>
+              <keybind key="XF86AudioRaiseVolume"><action name="Execute"><command>pactl set-sink-volume @DEFAULT_SINK@ +5%</command></action></keybind>
+              <keybind key="XF86AudioLowerVolume"><action name="Execute"><command>pactl set-sink-volume @DEFAULT_SINK@ -5%</command></action></keybind>
+              <keybind key="XF86AudioMute"><action name="Execute"><command>pactl set-sink-mute @DEFAULT_SINK@ toggle</command></action></keybind>
+              <keybind key="XF86AudioRaiseVolume"><action name="Execute"><command>pactl set-sink-volume @DEFAULT_SINK@ +5%</command></action></keybind>
+              <keybind key="XF86AudioLowerVolume"><action name="Execute"><command>pactl set-sink-volume @DEFAULT_SINK@ -5%</command></action></keybind>
+              <keybind key="XF86AudioMute"><action name="Execute"><command>pactl set-sink-mute @DEFAULT_SINK@ toggle</command></action></keybind>
             </keyboard>
             <mouse>
               <default />
