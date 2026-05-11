@@ -327,4 +327,7 @@
                 <mousebind button="A-Right" action="Drag"><action name="Resize"/></mousebind>
               </context>
             </mouse>
+          <placement>
+            <policy>cursor</policy>
+          </placement>
           </labwc_config>
