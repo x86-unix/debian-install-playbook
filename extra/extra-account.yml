@@ -1,0 +1,29 @@
+---
+# Configure sudo and create user account
+
+- name: "Extra: Account"
+  hosts: target
+  gather_facts: false
+
+  tasks:
+    - name: Configure sudo for sudo group
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/sudo-group
+        mode: "0440"
+        content: "{% if sudo_nopasswd %}%sudo ALL=(ALL:ALL) NOPASSWD: ALL{% else %}%sudo ALL=(ALL:ALL) ALL{% endif %}\n"
+
+    - name: Check if user exists
+      ansible.builtin.command: id {{ default_user }}
+      register: user_check
+      changed_when: false
+      failed_when: false
+
+    - name: Create user
+      ansible.builtin.user:
+        name: "{{ default_user }}"
+        password: "{{ default_user_password | password_hash('sha512') }}"
+        groups: sudo
+        append: true
+        shell: /bin/bash
+        create_home: true
+      when: user_check.rc != 0

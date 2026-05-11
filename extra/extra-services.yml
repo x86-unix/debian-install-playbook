@@ -1,0 +1,26 @@
+---
+# Install and enable system services
+
+- name: "Extra: Services"
+  hosts: target
+  gather_facts: false
+
+  tasks:
+    - name: Install cron
+      ansible.builtin.apt:
+        name: cron
+        state: present
+        update_cache: true
+
+    - name: Enable cron
+      ansible.builtin.systemd:
+        name: cron
+        enabled: true
+        state: started
+
+    - name: Schedule daily apt upgrade at 03:00
+      ansible.builtin.cron:
+        name: daily apt upgrade
+        minute: "0"
+        hour: "3"
+        job: '{ echo "=== $(date) ==="; apt-get update -qq; apt-get upgrade -y; echo "=== done ==="; } >> /var/log/auto-update.log 2>&1'

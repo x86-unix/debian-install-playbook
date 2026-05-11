@@ -1,0 +1,59 @@
+---
+# Bluetooth support: bluez + blueman tray applet
+
+- name: "Extra: Bluetooth"
+  hosts: target
+  gather_facts: false
+
+  tasks:
+    - name: Check Bluetooth hardware presence
+      ansible.builtin.shell: |
+        pci=$(lspci 2>/dev/null | grep -i bluetooth || true)
+        usb=$(lsusb 2>/dev/null | grep -i bluetooth || true)
+        rfk=$(rfkill list 2>/dev/null | grep -i bluetooth || true)
+        if [ -z "$pci" ] && [ -z "$usb" ] && [ -z "$rfk" ]; then
+          echo "NO_BT"
+        else
+          printf '%s\n%s\n%s\n' "$pci" "$usb" "$rfk" | grep -v '^$'
+        fi
+      register: bt_hw
+      changed_when: false
+
+    - name: Abort if no Bluetooth hardware found
+      ansible.builtin.debug:
+        msg: "Bluetooth ハードウェアが検出されませんでした。スキップします。"
+      when: bt_hw.stdout == "NO_BT"
+
+    - name: Show detected Bluetooth hardware
+      ansible.builtin.debug:
+        msg: "Bluetooth ハードウェア検出: {{ bt_hw.stdout_lines }}"
+      when: bt_hw.stdout != "NO_BT"
+
+    - name: Install bluez and blueman
+      ansible.builtin.apt:
+        name:
+          - bluez
+          - blueman
+        state: present
+        update_cache: true
+      when: bt_hw.stdout != "NO_BT"
+
+    - name: Enable bluetooth service
+      ansible.builtin.systemd:
+        name: bluetooth
+        enabled: true
+        state: started
+      when: bt_hw.stdout != "NO_BT"
+
+    - name: Ensure plugdev group exists
+      ansible.builtin.group:
+        name: plugdev
+        state: present
+      when: bt_hw.stdout != "NO_BT"
+
+    - name: Add user to plugdev group
+      ansible.builtin.user:
+        name: "{{ default_user }}"
+        groups: plugdev
+        append: true
+      when: bt_hw.stdout != "NO_BT"

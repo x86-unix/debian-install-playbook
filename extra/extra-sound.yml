@@ -1,0 +1,44 @@
+---
+# Install PipeWire sound server
+
+- name: "Extra: Sound (pipewire)"
+  hosts: target
+  gather_facts: false
+
+  tasks:
+    - name: Install pipewire and wireplumber
+      ansible.builtin.apt:
+        name:
+          - pipewire
+          - pipewire-pulse
+          - pipewire-alsa
+          - wireplumber
+        state: present
+        update_cache: true
+
+    - name: Enable linger for user (allows user services to start at boot)
+      ansible.builtin.command: loginctl enable-linger {{ default_user }}
+      changed_when: false
+
+    - name: Ensure systemd user service directories exist
+      ansible.builtin.file:
+        path: /etc/systemd/user/{{ item }}
+        state: directory
+        mode: "0755"
+      loop:
+        - default.target.wants
+        - sockets.target.wants
+        - pipewire.service.wants
+
+    - name: Enable pipewire wireplumber user services globally
+      ansible.builtin.file:
+        src: /usr/lib/systemd/user/{{ item.src }}
+        dest: /etc/systemd/user/{{ item.dest }}
+        state: link
+        force: true
+      failed_when: false
+      loop:
+        - { src: pipewire.service,       dest: default.target.wants/pipewire.service }
+        - { src: pipewire.socket,        dest: sockets.target.wants/pipewire.socket }
+        - { src: pipewire-pulse.service, dest: default.target.wants/pipewire-pulse.service }
+        - { src: wireplumber.service,    dest: pipewire.service.wants/wireplumber.service }

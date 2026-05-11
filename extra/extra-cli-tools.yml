@@ -1,0 +1,27 @@
+---
+# Install CLI tools
+
+- name: "Extra: CLI tools"
+  hosts: target
+  gather_facts: false
+
+  tasks:
+    - name: Ensure /etc/apt/keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Install CLI tools
+      ansible.builtin.apt:
+        name:
+          - p7zip-full
+          - gh
+          - tree
+        state: present
+        update_cache: true
+
+    - name: Set default editor to vim
+      ansible.builtin.command: update-alternatives --set editor /usr/bin/vim.basic
+      changed_when: false
+      failed_when: false

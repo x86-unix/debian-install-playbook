@@ -1,0 +1,209 @@
+---
+# Install GUI tools (Chrome, VSCode, yazi, etc.)
+
+- name: "Extra: GUI tools"
+  hosts: target
+  gather_facts: false
+
+  tasks:
+    - name: Ensure /etc/apt/keyrings directory exists and gnupg installed
+      ansible.builtin.apt:
+        name: gnupg
+        state: present
+        update_cache: true
+
+    - name: Ensure /etc/apt/keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    # ── Google Chrome ─────────────────────────────────────────────────────────
+    - name: Add Google Chrome apt key
+      ansible.builtin.shell: |
+        curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
+          | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg
+      args:
+        creates: /etc/apt/keyrings/google-chrome.gpg
+
+    - name: Add Google Chrome apt repository
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/google-chrome.list
+        mode: "0644"
+        content: "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main\n"
+
+    - name: Install Google Chrome
+      ansible.builtin.apt:
+        name: google-chrome-stable
+        state: present
+        update_cache: true
+
+    # ── VSCode ────────────────────────────────────────────────────────────────
+    - name: Add VSCode apt key
+      ansible.builtin.shell: |
+        curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+          | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg
+      args:
+        creates: /etc/apt/keyrings/microsoft.gpg
+
+    - name: Add VSCode apt repository
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/vscode.list
+        mode: "0644"
+        content: "deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main\n"
+
+    - name: Install VSCode
+      ansible.builtin.apt:
+        name: code
+        state: present
+        update_cache: true
+
+    # ── その他 GUI ツール ─────────────────────────────────────────────────────
+    - name: Install GUI tools
+      ansible.builtin.apt:
+        name:
+          - papirus-icon-theme
+          - mpv
+          - flameshot
+          - grim
+        state: present
+        update_cache: true
+
+    # ── yazi (debian.griffo.io unofficial repo) ───────────────────────────────
+    - name: Add yazi apt key
+      ansible.builtin.shell: |
+        curl -fsSL https://debian.griffo.io/EA0F721D231FDD3A0A17B9AC7808B4DD62C41256.asc \
+          | gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/debian.griffo.io.gpg
+      args:
+        creates: /etc/apt/trusted.gpg.d/debian.griffo.io.gpg
+
+    - name: Add yazi apt repository
+      ansible.builtin.shell: |
+        codename=$(. /etc/os-release && echo $VERSION_CODENAME)
+        echo "deb https://debian.griffo.io/apt ${codename} main" \
+          > /etc/apt/sources.list.d/debian.griffo.io.list
+      args:
+        creates: /etc/apt/sources.list.d/debian.griffo.io.list
+
+    - name: Install yazi
+      ansible.builtin.apt:
+        name: yazi
+        state: present
+        update_cache: true
+
+    # ── Desktop entries ───────────────────────────────────────────────────────
+    - name: Override Chrome desktop for Wayland
+      ansible.builtin.copy:
+        dest: /usr/share/applications/google-chrome.desktop
+        mode: "0644"
+        content: |
+          [Desktop Entry]
+          Name=Google Chrome
+          Exec=/usr/bin/google-chrome-stable --ozone-platform=wayland --password-store=basic %U
+          Terminal=false
+          Type=Application
+          Icon=google-chrome
+          Categories=Network;WebBrowser;
+
+    - name: Override VSCode desktop for Wayland
+      ansible.builtin.copy:
+        dest: /usr/share/applications/code.desktop
+        mode: "0644"
+        content: |
+          [Desktop Entry]
+          Name=Visual Studio Code
+          Exec=/usr/bin/code --ozone-platform=wayland %F
+          Terminal=false
+          Type=Application
+          Icon=vscode
+          Categories=Development;
+
+    - name: Create yazi desktop entry
+      ansible.builtin.copy:
+        dest: /usr/share/applications/yazi.desktop
+        mode: "0644"
+        content: |
+          [Desktop Entry]
+          Name=Yazi
+          Exec=foot --window-size-chars=144x30 yazi
+          Terminal=false
+          Type=Application
+          Icon=system-file-manager
+          Categories=System;FileManager;
+
+    - name: Set papirus as default icon theme
+      ansible.builtin.file:
+        path: /usr/share/icons/default
+        state: directory
+        mode: "0755"
+
+    - name: Write default icon theme index
+      ansible.builtin.copy:
+        dest: /usr/share/icons/default/index.theme
+        mode: "0644"
+        content: |
+          [Icon Theme]
+          Inherits=Papirus
+
+    - name: Ensure yazi config directory
+      ansible.builtin.file:
+        path: /home/{{ default_user }}/.config/yazi
+        state: directory
+        owner: "{{ default_user }}"
+        mode: "0755"
+
+    - name: Configure yazi opener (mpv)
+      ansible.builtin.copy:
+        dest: /home/{{ default_user }}/.config/yazi/yazi.toml
+        owner: "{{ default_user }}"
+        mode: "0644"
+        content: |
+          [opener]
+          play = [
+            { run = 'mpv "$@"', desc = 'mpv', orphan = true },
+          ]
+
+          [open]
+          rules = [
+            { mime = "video/*", use = "play" },
+            { mime = "audio/*", use = "play" },
+          ]
+
+    - name: Ensure flameshot config directory
+      ansible.builtin.file:
+        path: /home/{{ default_user }}/.config/flameshot
+        state: directory
+        owner: "{{ default_user }}"
+        mode: "0755"
+
+    - name: Configure flameshot (grim adapter for Wayland)
+      ansible.builtin.copy:
+        dest: /home/{{ default_user }}/.config/flameshot/flameshot.ini
+        owner: "{{ default_user }}"
+        mode: "0644"
+        content: |
+          [General]
+          useGrimAdapter=true
+
+    - name: Hide CLI/unnecessary apps from launcher
+      ansible.builtin.copy:
+        dest: /usr/share/applications/{{ item }}
+        mode: "0644"
+        content: |
+          [Desktop Entry]
+          NoDisplay=true
+          Type=Application
+          Name={{ item }}
+      loop:
+        - vim.desktop
+        - flameshot.desktop
+        - foot-server.desktop
+        - footclient.desktop
+        - code-url-handler.desktop
+        - fcitx5-wayland-launcher.desktop
+        - com.google.Chrome.desktop
+        - fcitx5-configtool.desktop
+        - org.fcitx.Fcitx5.desktop
+        - blueman-adapters.desktop
+        - blueman-manager.desktop
+        - mpv.desktop

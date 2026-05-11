@@ -1,0 +1,321 @@
+---
+# Install Wayland compositor stack (labwc + essentials)
+
+- name: "Extra: Wayland (labwc)"
+  hosts: target
+  gather_facts: false
+
+  tasks:
+    - name: Install labwc and essentials
+      ansible.builtin.apt:
+        name:
+          - labwc
+          - xwayland
+          - waybar
+          - foot
+          - wofi
+          - wl-clipboard
+          - swaybg
+          - swayidle
+          - greetd
+          - xdg-user-dirs
+          - fonts-noto-cjk
+          - fonts-noto-color-emoji
+          - fonts-jetbrains-mono
+        state: present
+        update_cache: true
+
+    - name: Install tuigreet (best-effort, sid only)
+      ansible.builtin.apt:
+        name: tuigreet
+        state: present
+      failed_when: false
+
+    - name: Add user to video and render groups
+      ansible.builtin.user:
+        name: "{{ default_user }}"
+        groups: video,render
+        append: true
+
+    - name: Ensure greetd system user exists
+      ansible.builtin.user:
+        name: greetd
+        system: true
+        shell: /usr/sbin/nologin
+        home: /var/lib/greetd
+        create_home: true
+
+    - name: Configure greetd
+      ansible.builtin.copy:
+        dest: /etc/greetd/config.toml
+        mode: "0644"
+        content: |
+          [terminal]
+          vt = 1
+
+          [default_session]
+          command = "tuigreet --cmd labwc --greeting 'Welcome' --remember --time"
+          user = greetd
+
+    - name: Enable greetd service
+      ansible.builtin.systemd:
+        name: greetd
+        enabled: true
+        state: started
+
+    - name: Disable getty@tty1 (greetd takes over tty1)
+      ansible.builtin.systemd:
+        name: getty@tty1
+        enabled: false
+        masked: true
+
+    - name: Ensure labwc config directory
+      ansible.builtin.file:
+        path: /home/{{ default_user }}/.config/labwc
+        state: directory
+        owner: "{{ default_user }}"
+        mode: "0755"
+
+    - name: Ensure foot config directory
+      ansible.builtin.file:
+        path: /home/{{ default_user }}/.config/foot
+        state: directory
+        owner: "{{ default_user }}"
+        mode: "0755"
+
+    - name: Configure foot font
+      ansible.builtin.copy:
+        dest: /home/{{ default_user }}/.config/foot/foot.ini
+        owner: "{{ default_user }}"
+        mode: "0644"
+        content: |
+          [main]
+          font=JetBrains Mono:size=12,Noto Sans Mono CJK JP:size=12
+
+          [colors]
+          alpha=0.8
+
+          [tweak]
+          font-monospace-warn=no
+
+    - name: Ensure waybar config directory
+      ansible.builtin.file:
+        path: /home/{{ default_user }}/.config/waybar
+        state: directory
+        owner: "{{ default_user }}"
+        mode: "0755"
+
+    - name: Configure waybar
+      ansible.builtin.copy:
+        dest: /home/{{ default_user }}/.config/waybar/config
+        owner: "{{ default_user }}"
+        mode: "0644"
+        content: |
+          {
+            "layer": "top",
+            "font": "Noto Sans CJK JP 12",
+            "modules-left": ["ext/workspaces", "custom/launcher", "clock"],
+            "modules-center": ["wlr/taskbar"],
+            "modules-right": ["bluetooth", "pulseaudio", "memory", "cpu", "tray", "custom/power"],
+            "wlr/taskbar": {
+              "format": "{icon} {title:.20}",
+              "icon-size": 16,
+              "on-click": "activate",
+              "on-click-middle": "close",
+              "tooltip-format": "{title}"
+            },
+            "ext/workspaces": {
+              "format": "{name}",
+              "sort-by-number": true,
+              "on-click": "activate"
+            },
+            "custom/launcher": {
+              "format": "🚀",
+              "on-click": "wofi --show drun --allow-images --width=25%",
+              "tooltip": false
+            },
+            "clock": { "format": "{:%Y-%m-%d %H:%M}" },
+            "cpu": { "format": "CPU {usage}%" },
+            "memory": { "format": "MEM {used:0.1f}G" },
+            "pulseaudio": {
+              "format": "🔊 {volume}%",
+              "format-muted": "🔇",
+              "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+              "on-scroll-up": "pactl set-sink-volume @DEFAULT_SINK@ +5%",
+              "on-scroll-down": "pactl set-sink-volume @DEFAULT_SINK@ -5%"
+            },
+            "bluetooth": {
+              "format": "󰂯",
+              "format-connected": "󰂱 {device_alias}",
+              "format-disabled": "󰂲",
+              "on-click": "blueman-manager",
+              "tooltip-format": "{controller_alias} ({controller_address})",
+              "tooltip-format-connected": "{controller_alias}\n{device_enumerate}",
+              "tooltip-format-enumerate-connected": "{device_alias} ({device_address})"
+            },
+            "tray": { "spacing": 8 },
+            "custom/power": {
+              "format": "⏻",
+              "on-click": "systemctl poweroff",
+              "tooltip-format": "Power off"
+            }
+          }
+
+    - name: Configure waybar style
+      ansible.builtin.copy:
+        dest: /home/{{ default_user }}/.config/waybar/style.css
+        owner: "{{ default_user }}"
+        mode: "0644"
+        content: |
+          * {
+            font-family: "Noto Sans CJK JP";
+            font-size: 13px;
+          }
+          window#waybar {
+            background: #1e1e2e;
+            color: #cdd6f4;
+          }
+          #workspaces button,
+          #ext-workspaces button {
+            padding: 0 8px;
+            color: #6c7086;
+            border-radius: 4px;
+          }
+          #workspaces button.active,
+          #ext-workspaces button.active {
+            color: #cdd6f4;
+            background: #45475a;
+            font-weight: bold;
+          }
+          #taskbar button {
+            padding: 0 8px;
+            border-radius: 4px;
+          }
+          #taskbar button.active {
+            background: #45475a;
+            font-weight: bold;
+          }
+          #clock, #cpu, #memory, #pulseaudio, #bluetooth, #tray, #custom-launcher {
+            padding: 0 10px;
+          }
+          #custom-launcher {
+            font-size: 16px;
+          }
+          #custom-power {
+            padding: 0 8px;
+            font-size: 16px;
+            color: #f38ba8;
+          }
+
+    - name: Configure labwc menu.xml
+      ansible.builtin.copy:
+        dest: /home/{{ default_user }}/.config/labwc/menu.xml
+        owner: "{{ default_user }}"
+        mode: "0644"
+        content: |
+          <openbox_menu>
+          <menu id="root-menu">
+            <item label="ターミナル">
+              <action name="Execute"><command>foot</command></action>
+            </item>
+            <item label="ファイルマネージャ (yazi)">
+              <action name="Execute"><command>foot --window-size-chars=144x30 yazi</command></action>
+            </item>
+            <item label="Chrome">
+              <action name="Execute"><command>google-chrome-stable --ozone-platform=wayland --password-store=basic</command></action>
+            </item>
+            <separator />
+            <item label="終了">
+              <action name="Exit" />
+            </item>
+          </menu>
+          </openbox_menu>
+
+    - name: Deploy wallpaper
+      ansible.builtin.copy:
+        src: ../files/{{ wallpaper | default('frieren-blue-flower-anime-wallpaper-4k.png') }}
+        dest: /home/{{ default_user }}/.config/labwc/wallpaper.png
+        owner: "{{ default_user }}"
+        mode: "0644"
+
+    - name: Ensure ~/.icons/default directory
+      ansible.builtin.file:
+        path: /home/{{ default_user }}/.icons/default
+        state: directory
+        owner: "{{ default_user }}"
+        mode: "0755"
+
+    - name: Set default cursor theme via index.theme
+      ansible.builtin.copy:
+        dest: /home/{{ default_user }}/.icons/default/index.theme
+        owner: "{{ default_user }}"
+        mode: "0644"
+        content: |
+          [Icon Theme]
+          Name=Default
+          Comment=Default cursor theme
+          Inherits=macOS
+
+    - name: Configure labwc autostart
+      ansible.builtin.copy:
+        dest: /home/{{ default_user }}/.config/labwc/autostart
+        owner: "{{ default_user }}"
+        mode: "0644"
+        content: |
+          swaybg -i $HOME/.config/labwc/wallpaper.png -m fill &
+          waybar &
+          swayidle -w timeout {{ display_idle_timeout | default(3600) }} 'systemctl suspend' &
+          fcitx5 -d &
+          wayvnc &
+          flameshot &
+
+    - name: Configure labwc environment
+      ansible.builtin.copy:
+        dest: /home/{{ default_user }}/.config/labwc/environment
+        owner: "{{ default_user }}"
+        mode: "0644"
+        content: |
+          XKB_DEFAULT_OPTIONS=ctrl:nocaps
+          GTK_IM_MODULE=fcitx
+          QT_IM_MODULE=fcitx
+          XMODIFIERS=@im=fcitx
+          QT_QPA_PLATFORM=wayland
+          XCURSOR_SIZE=24
+
+    - name: Configure labwc rc.xml (workspaces + keybinds)
+      ansible.builtin.copy:
+        dest: /home/{{ default_user }}/.config/labwc/rc.xml
+        owner: "{{ default_user }}"
+        mode: "0644"
+        content: |
+          <?xml version="1.0"?>
+          <labwc_config>
+            <desktops>
+              <names>
+                <name>1</name>
+                <name>2</name>
+                <name>3</name>
+                <name>4</name>
+              </names>
+            </desktops>
+            <keyboard>
+              <keybind key="W-1"><action name="GoToDesktop" to="1"/></keybind>
+              <keybind key="W-2"><action name="GoToDesktop" to="2"/></keybind>
+              <keybind key="W-3"><action name="GoToDesktop" to="3"/></keybind>
+              <keybind key="W-4"><action name="GoToDesktop" to="4"/></keybind>
+              <keybind key="W-S-1"><action name="SendToDesktop" to="1"/></keybind>
+              <keybind key="W-S-2"><action name="SendToDesktop" to="2"/></keybind>
+              <keybind key="W-S-3"><action name="SendToDesktop" to="3"/></keybind>
+              <keybind key="W-S-4"><action name="SendToDesktop" to="4"/></keybind>
+              <keybind key="W-space"><action name="Execute"><command>wofi --show drun --allow-images --width=25%</command></action></keybind>
+              <keybind key="W-Return"><action name="Execute"><command>foot</command></action></keybind>
+              <keybind key="A-F4"><action name="Close"/></keybind>
+            </keyboard>
+            <mouse>
+              <default />
+              <context name="Frame">
+                <mousebind button="A-Left" action="Drag"><action name="Move"/></mousebind>
+                <mousebind button="A-Right" action="Drag"><action name="Resize"/></mousebind>
+              </context>
+            </mouse>
+          </labwc_config>

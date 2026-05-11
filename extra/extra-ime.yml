@@ -1,0 +1,30 @@
+---
+# Install fcitx5 + SKK
+
+- name: "Extra: IME (fcitx5 + SKK)"
+  hosts: target
+  gather_facts: false
+
+  tasks:
+    - name: Install fcitx5 + SKK
+      ansible.builtin.apt:
+        name:
+          - fcitx5
+          - fcitx5-skk
+          - fcitx5-config-qt
+          - fcitx5-frontend-gtk3
+          - fcitx5-frontend-gtk4
+          - fcitx5-frontend-qt5
+          - skkdic
+        state: present
+        update_cache: true
+
+    - name: Configure fcitx5 environment
+      ansible.builtin.copy:
+        dest: /etc/environment.d/90-fcitx5.conf
+        mode: "0644"
+        content: |
+          GTK_IM_MODULE=fcitx
+          QT_IM_MODULE=fcitx
+          XMODIFIERS=@im=fcitx
+          SDL_IM_MODULE=fcitx
