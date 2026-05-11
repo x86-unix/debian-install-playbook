@@ -18,6 +18,7 @@
           - swaybg
           - swayidle
           - greetd
+          - wlogout
           - xdg-user-dirs
           - fonts-noto-cjk
           - fonts-noto-color-emoji
@@ -160,8 +161,8 @@
             "tray": { "spacing": 8 },
             "custom/power": {
               "format": "⏻",
-              "on-click": "systemctl poweroff",
-              "tooltip-format": "Power off"
+              "on-click": "wlogout -m 460",
+              "tooltip-format": "Power Menu"
             }
           }
 
@@ -209,6 +210,79 @@
             padding: 0 8px;
             font-size: 16px;
             color: #f38ba8;
+          }
+
+    - name: Ensure wlogout config directory
+      ansible.builtin.file:
+        path: /home/{{ default_user }}/.config/wlogout
+        state: directory
+        owner: "{{ default_user }}"
+        mode: "0755"
+
+    - name: Configure wlogout layout
+      ansible.builtin.copy:
+        dest: /home/{{ default_user }}/.config/wlogout/layout
+        owner: "{{ default_user }}"
+        mode: "0644"
+        content: |
+          {
+            "label": "logout",
+            "action": "loginctl terminate-user $USER",
+            "text": "Logout",
+            "keybind": "l"
+          }
+          {
+            "label": "reboot",
+            "action": "systemctl reboot",
+            "text": "Reboot",
+            "keybind": "r"
+          }
+          {
+            "label": "shutdown",
+            "action": "systemctl poweroff",
+            "text": "Shutdown",
+            "keybind": "s"
+          }
+
+    - name: Configure wlogout style
+      ansible.builtin.copy:
+        dest: /home/{{ default_user }}/.config/wlogout/style.css
+        owner: "{{ default_user }}"
+        mode: "0644"
+        content: |
+          * {
+            background-image: none;
+            box-shadow: none;
+          }
+          window {
+            background-color: rgba(12, 12, 12, 0.9);
+          }
+          button {
+            border-radius: 0;
+            border-color: black;
+            text-decoration-color: #FFFFFF;
+            color: #FFFFFF;
+            background-color: #1E1E1E;
+            border-style: solid;
+            border-width: 1px;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 15%;
+            font-family: 'Noto Sans CJK JP';
+            font-size: 16px;
+          }
+          button:focus, button:active, button:hover {
+            background-color: #3700B3;
+            outline-style: none;
+          }
+          #logout {
+            background-image: image(url("/usr/share/wlogout/icons/logout.png"), url("/usr/local/share/wlogout/icons/logout.png"));
+          }
+          #reboot {
+            background-image: image(url("/usr/share/wlogout/icons/reboot.png"), url("/usr/local/share/wlogout/icons/reboot.png"));
+          }
+          #shutdown {
+            background-image: image(url("/usr/share/wlogout/icons/shutdown.png"), url("/usr/local/share/wlogout/icons/shutdown.png"));
           }
 
     - name: Configure labwc menu.xml
