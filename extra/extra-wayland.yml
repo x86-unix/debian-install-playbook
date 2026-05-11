@@ -39,7 +39,27 @@
         groups: video,render
         append: true
 
-    - name: Ensure greetd system user exists
+    - name: Install polkitd
+      ansible.builtin.apt:
+        name: polkitd
+        state: present
+
+    - name: Allow sudo group to poweroff and reboot via polkit
+      ansible.builtin.copy:
+        dest: /etc/polkit-1/rules.d/10-power.rules
+        mode: "0644"
+        content: |
+          polkit.addRule(function(action, subject) {
+              if ((action.id == 'org.freedesktop.login1.power-off' ||
+                   action.id == 'org.freedesktop.login1.power-off-multiple-sessions' ||
+                   action.id == 'org.freedesktop.login1.reboot' ||
+                   action.id == 'org.freedesktop.login1.reboot-multiple-sessions') &&
+                  subject.isInGroup('sudo')) {
+                  return polkit.Result.YES;
+              }
+          });
+
+    - name: Enable greetd system user exists
       ansible.builtin.user:
         name: greetd
         system: true
