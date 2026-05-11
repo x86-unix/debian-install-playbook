@@ -19,6 +19,7 @@
           - swayidle
           - greetd
           - wlogout
+          - wlopm
           - xdg-user-dirs
           - fonts-noto-cjk
           - fonts-noto-color-emoji
@@ -342,7 +343,7 @@
         content: |
           swaybg -i $HOME/.config/labwc/wallpaper.png -m fill &
           waybar &
-          swayidle -w timeout {{ display_idle_timeout | default(3600) }} 'systemctl suspend' &
+          swayidle -w timeout {{ display_idle_timeout | default(3600) }} 'wlopm --off "*"' resume 'wlopm --on "*"' &
           fcitx5 -d &
           wayvnc &
           flameshot &
