@@ -16,7 +16,7 @@ default_user: debian
 default_user_password: debian
 sudo_nopasswd: true
 display_idle_timeout: 3600
-wallpaper: frieren-blue-flower-anime-wallpaper-4k.png
+wallpaper: 4k-frieren-wallpapers-wp15069309.png
 
 wifi_ssid: yg-ap1
 wifi_password: !vault |
