@@ -337,6 +337,15 @@
         owner: "{{ default_user }}"
         mode: "0644"
 
+    - name: Download macOS cursor theme
+      ansible.builtin.shell: |
+        curl -fsSL https://github.com/ful1e5/apple_cursor/releases/latest/download/macOS.tar.xz \
+          -o /tmp/macOS-cursor.tar.xz
+        tar -xf /tmp/macOS-cursor.tar.xz -C /usr/share/icons/
+        rm -f /tmp/macOS-cursor.tar.xz
+      args:
+        creates: /usr/share/icons/macOS/cursors/left_ptr
+
     - name: Ensure ~/.icons/default directory
       ansible.builtin.file:
         path: /home/{{ default_user }}/.icons/default
