@@ -13,21 +13,26 @@
       args:
         creates: /usr/bin/debootstrap
 
+    - name: Detect boot mode (UEFI or BIOS)
+      shell: "[ -d /sys/firmware/efi ] && echo uefi || echo bios"
+      register: boot_mode
+      changed_when: false
+
     - name: Show current disk layout
       shell: "lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL {{ target_disk }}"
       register: disk_layout
       changed_when: false
 
-    - name: Display disk layout
+    - name: Display disk layout and boot mode
       debug:
-        var: disk_layout.stdout_lines
+        msg: "{{ boot_mode.stdout | upper }} モード\n{{ disk_layout.stdout }}"
 
     - name: Confirm disk partitioning
       pause:
         prompt: "{{ target_disk }} を完全に消去してパーティションを作成します。実行する場合は 'yes' を入力してください（デフォルト: no）"
       register: confirm_partition
 
-    - name: Create GPT partition table and partitions
+    - name: Create GPT partitions (UEFI)
       shell: |
         umount {{ target_disk }}* 2>/dev/null || true
         sgdisk --zap-all {{ target_disk }}
@@ -35,15 +40,36 @@
         sgdisk -n 2:0:0 -t 2:8300 -c 2:root {{ target_disk }}
         partprobe {{ target_disk }}
         sleep 2
-      when: confirm_partition.user_input == 'yes'
+      when: confirm_partition.user_input == 'yes' and boot_mode.stdout == 'uefi'
+
+    - name: Create GPT partitions (BIOS)
+      shell: |
+        umount {{ target_disk }}* 2>/dev/null || true
+        sgdisk --zap-all {{ target_disk }}
+        sgdisk -n 1:0:+1M -t 1:ef02 -c 1:BIOS {{ target_disk }}
+        sgdisk -n 2:0:0 -t 2:8300 -c 2:root {{ target_disk }}
+        partprobe {{ target_disk }}
+        sleep 2
+      when: confirm_partition.user_input == 'yes' and boot_mode.stdout == 'bios'
+
+    - name: Set partition variables (UEFI)
+      set_fact:
+        efi_partition: "{{ target_disk }}1"
+        root_partition: "{{ target_disk }}2"
+      when: boot_mode.stdout == 'uefi'
+
+    - name: Set partition variables (BIOS)
+      set_fact:
+        root_partition: "{{ target_disk }}2"
+      when: boot_mode.stdout == 'bios'
 
     - name: Unmount target partitions
-      shell: "umount {{ efi_partition }} {{ root_partition }} 2>/dev/null || true"
+      shell: "umount {{ target_disk }}* 2>/dev/null || true"
       when: confirm_partition.user_input == 'yes'
 
     - name: Format EFI partition
       shell: mkfs.vfat -F 32 {{ efi_partition }}
-      when: confirm_partition.user_input == 'yes'
+      when: confirm_partition.user_input == 'yes' and boot_mode.stdout == 'uefi'
 
     - name: Format root partition
       shell: mkfs.ext4 -F {{ root_partition }}
@@ -54,6 +80,7 @@
 
     - name: Mount EFI partition
       shell: mkdir -p {{ chroot_dir }}/boot/efi && mount {{ efi_partition }} {{ chroot_dir }}/boot/efi
+      when: boot_mode.stdout == 'uefi'
 
     - name: Run debootstrap
       shell: debootstrap --arch=amd64 {{ debian_suite }} {{ chroot_dir }} {{ debian_mirror }}
@@ -62,12 +89,20 @@
       async: 1800
       poll: 30
 
-    - name: Write fstab
+    - name: Write fstab (UEFI)
       copy:
         dest: "{{ chroot_dir }}/etc/fstab"
         content: |
           {{ root_partition }}  /         ext4  errors=remount-ro  0  1
           {{ efi_partition }}   /boot/efi vfat  umask=0077         0  1
+      when: boot_mode.stdout == 'uefi'
+
+    - name: Write fstab (BIOS)
+      copy:
+        dest: "{{ chroot_dir }}/etc/fstab"
+        content: |
+          {{ root_partition }}  /  ext4  errors=remount-ro  0  1
+      when: boot_mode.stdout == 'bios'
 
     - name: Set hostname
       copy:
@@ -105,8 +140,7 @@
       shell: |
         chroot {{ chroot_dir }} apt-get install -y \
           linux-image-amd64 \
-          grub-efi-amd64 \
-          efibootmgr \
+          {{ 'grub-efi-amd64 efibootmgr' if boot_mode.stdout == 'uefi' else 'grub-pc' }} \
           systemd-sysv \
           network-manager \
           openssh-server \
@@ -140,12 +174,21 @@
     - name: Set root password
       shell: chroot {{ chroot_dir }} bash -c "echo 'root:{{ root_password }}' | chpasswd"
 
-    - name: Install GRUB
+    - name: Install GRUB (UEFI)
       shell: |
         chroot {{ chroot_dir }} grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=debian
         chroot {{ chroot_dir }} update-grub
       async: 300
       poll: 15
+      when: boot_mode.stdout == 'uefi'
+
+    - name: Install GRUB (BIOS)
+      shell: |
+        chroot {{ chroot_dir }} grub-install --target=i386-pc {{ target_disk }}
+        chroot {{ chroot_dir }} update-grub
+      async: 300
+      poll: 15
+      when: boot_mode.stdout == 'bios'
 
     - name: Detect wired interface
       shell: "ip -o link show | awk -F': ' '/^[0-9]+: e/{print $2}' | head -1"
@@ -189,5 +232,5 @@
         umount {{ chroot_dir }}/dev  || true
         umount {{ chroot_dir }}/proc || true
         umount {{ chroot_dir }}/sys  || true
-        umount {{ chroot_dir }}/boot/efi
+        umount {{ chroot_dir }}/boot/efi 2>/dev/null || true
         umount {{ chroot_dir }}
