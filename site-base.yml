@@ -15,8 +15,17 @@
 
     - name: Detect boot mode (UEFI or BIOS)
       shell: "[ -d /sys/firmware/efi ] && echo uefi || echo bios"
-      register: boot_mode
+      register: boot_mode_detected
       changed_when: false
+
+    - name: Confirm boot mode
+      pause:
+        prompt: "ブートモード自動検出: {{ boot_mode_detected.stdout | upper }}。変更する場合は 'uefi' または 'bios' を入力してください（Enter でそのまま）"
+      register: boot_mode_input
+
+    - name: Set boot mode
+      set_fact:
+        boot_mode: "{{ boot_mode_input.user_input if boot_mode_input.user_input in ['uefi', 'bios'] else boot_mode_detected.stdout }}"
 
     - name: Show current disk layout
       shell: "lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL {{ target_disk }}"
@@ -25,7 +34,7 @@
 
     - name: Display disk layout and boot mode
       debug:
-        msg: "{{ boot_mode.stdout | upper }} モード\n{{ disk_layout.stdout }}"
+        msg: "{{ boot_mode | upper }} モード\n{{ disk_layout.stdout }}"
 
     - name: Confirm disk partitioning
       pause:
@@ -40,7 +49,7 @@
         sgdisk -n 2:0:0 -t 2:8300 -c 2:root {{ target_disk }}
         partprobe {{ target_disk }}
         sleep 2
-      when: confirm_partition.user_input == 'yes' and boot_mode.stdout == 'uefi'
+      when: confirm_partition.user_input == 'yes' and boot_mode == 'uefi'
 
     - name: Create GPT partitions (BIOS)
       shell: |
@@ -50,18 +59,18 @@
         sgdisk -n 2:0:0 -t 2:8300 -c 2:root {{ target_disk }}
         partprobe {{ target_disk }}
         sleep 2
-      when: confirm_partition.user_input == 'yes' and boot_mode.stdout == 'bios'
+      when: confirm_partition.user_input == 'yes' and boot_mode == 'bios'
 
     - name: Set partition variables (UEFI)
       set_fact:
         efi_partition: "{{ target_disk }}1"
         root_partition: "{{ target_disk }}2"
-      when: boot_mode.stdout == 'uefi'
+      when: boot_mode == 'uefi'
 
     - name: Set partition variables (BIOS)
       set_fact:
         root_partition: "{{ target_disk }}2"
-      when: boot_mode.stdout == 'bios'
+      when: boot_mode == 'bios'
 
     - name: Unmount target partitions
       shell: |
@@ -73,7 +82,7 @@
 
     - name: Format EFI partition
       shell: mkfs.vfat -F 32 {{ efi_partition }}
-      when: confirm_partition.user_input == 'yes' and boot_mode.stdout == 'uefi'
+      when: confirm_partition.user_input == 'yes' and boot_mode == 'uefi'
 
     - name: Format root partition
       shell: mkfs.ext4 -F {{ root_partition }}
@@ -84,7 +93,7 @@
 
     - name: Mount EFI partition
       shell: mkdir -p {{ chroot_dir }}/boot/efi && mount {{ efi_partition }} {{ chroot_dir }}/boot/efi
-      when: boot_mode.stdout == 'uefi'
+      when: boot_mode == 'uefi'
 
     - name: Run debootstrap
       shell: debootstrap --arch=amd64 {{ debian_suite }} {{ chroot_dir }} {{ debian_mirror }}
@@ -99,14 +108,14 @@
         content: |
           {{ root_partition }}  /         ext4  errors=remount-ro  0  1
           {{ efi_partition }}   /boot/efi vfat  umask=0077         0  1
-      when: boot_mode.stdout == 'uefi'
+      when: boot_mode == 'uefi'
 
     - name: Write fstab (BIOS)
       copy:
         dest: "{{ chroot_dir }}/etc/fstab"
         content: |
           {{ root_partition }}  /  ext4  errors=remount-ro  0  1
-      when: boot_mode.stdout == 'bios'
+      when: boot_mode == 'bios'
 
     - name: Set hostname
       copy:
@@ -144,7 +153,7 @@
       shell: |
         chroot {{ chroot_dir }} apt-get install -y \
           linux-image-amd64 \
-          {{ 'grub-efi-amd64 efibootmgr' if boot_mode.stdout == 'uefi' else 'grub-pc' }} \
+          {{ 'grub-efi-amd64 efibootmgr' if boot_mode == 'uefi' else 'grub-pc' }} \
           systemd-sysv \
           network-manager \
           openssh-server \
@@ -184,7 +193,7 @@
         chroot {{ chroot_dir }} update-grub
       async: 300
       poll: 15
-      when: boot_mode.stdout == 'uefi'
+      when: boot_mode == 'uefi'
 
     - name: Install GRUB (BIOS)
       shell: |
@@ -192,7 +201,7 @@
         chroot {{ chroot_dir }} update-grub
       async: 300
       poll: 15
-      when: boot_mode.stdout == 'bios'
+      when: boot_mode == 'bios'
 
     - name: Detect wired interface
       shell: "ip -o link show | awk -F': ' '/^[0-9]+: e/{print $2}' | head -1"
