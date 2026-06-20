@@ -34,6 +34,7 @@
 
     - name: Create GPT partition table and partitions
       shell: |
+        umount {{ target_disk }}* 2>/dev/null || true
         sgdisk --zap-all {{ target_disk }}
         sgdisk -n 1:0:+512M -t 1:ef00 -c 1:EFI {{ target_disk }}
         sgdisk -n 2:0:0 -t 2:8300 -c 2:root {{ target_disk }}
