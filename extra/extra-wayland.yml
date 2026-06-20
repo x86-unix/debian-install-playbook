@@ -182,7 +182,7 @@
             "tray": { "spacing": 8 },
             "custom/power": {
               "format": "⏻",
-              "on-click": "wlogout -m 460",
+              "on-click": "wlogout",
               "tooltip-format": "Power Menu"
             }
           }
@@ -288,9 +288,9 @@
             border-width: 1px;
             background-repeat: no-repeat;
             background-position: center;
-            background-size: 15%;
+            background-size: 25%;
             font-family: 'Noto Sans CJK JP';
-            font-size: 16px;
+            font-size: 24px;
           }
           button:focus, button:active, button:hover {
             background-color: #3700B3;
