@@ -64,7 +64,11 @@
       when: boot_mode.stdout == 'bios'
 
     - name: Unmount target partitions
-      shell: "umount {{ target_disk }}* 2>/dev/null || true"
+      shell: |
+        umount -l {{ chroot_dir }}/boot/efi 2>/dev/null || true
+        umount -l {{ chroot_dir }} 2>/dev/null || true
+        umount -l {{ target_disk }}2 2>/dev/null || true
+        umount -l {{ target_disk }}1 2>/dev/null || true
       when: confirm_partition.user_input == 'yes'
 
     - name: Format EFI partition
