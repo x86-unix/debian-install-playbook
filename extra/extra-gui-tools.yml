@@ -39,10 +39,15 @@
         update_cache: true
 
     # ── VSCode ────────────────────────────────────────────────────────────────
+    - name: Remove old VSCode keyring if exists
+      ansible.builtin.file:
+        path: /usr/share/keyrings/microsoft.gpg
+        state: absent
+
     - name: Add VSCode apt key
       ansible.builtin.shell: |
         curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
-          | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg
+          | gpg --dearmor --yes -o /etc/apt/keyrings/microsoft.gpg
       args:
         creates: /etc/apt/keyrings/microsoft.gpg
 
