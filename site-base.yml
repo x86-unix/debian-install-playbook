@@ -13,6 +13,39 @@
       args:
         creates: /usr/bin/debootstrap
 
+    - name: Show current disk layout
+      shell: "lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL {{ target_disk }}"
+      register: disk_layout
+      changed_when: false
+
+    - name: Display disk layout
+      debug:
+        var: disk_layout.stdout_lines
+
+    - name: Confirm disk partitioning
+      pause:
+        prompt: "{{ target_disk }} will be COMPLETELY ERASED. Type 'yes' to continue"
+      register: confirm_partition
+
+    - name: Abort if not confirmed
+      fail:
+        msg: "Aborted by user."
+      when: confirm_partition.user_input != 'yes'
+
+    - name: Create GPT partition table and partitions
+      shell: |
+        sgdisk --zap-all {{ target_disk }}
+        sgdisk -n 1:0:+512M -t 1:ef00 -c 1:EFI {{ target_disk }}
+        sgdisk -n 2:0:0 -t 2:8300 -c 2:root {{ target_disk }}
+        partprobe {{ target_disk }}
+        sleep 2
+
+    - name: Format EFI partition
+      shell: mkfs.vfat -F 32 {{ efi_partition }}
+
+    - name: Format root partition
+      shell: mkfs.ext4 -F {{ root_partition }}
+
     - name: Mount root partition
       shell: mkdir -p {{ chroot_dir }} && mount {{ root_partition }} {{ chroot_dir }}
 
