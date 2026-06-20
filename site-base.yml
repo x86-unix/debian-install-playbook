@@ -191,7 +191,8 @@
           firmware-iwlwifi \
           firmware-realtek \
           firmware-atheros \
-          firmware-misc-nonfree
+          firmware-misc-nonfree \
+          python3
       async: 1800
       poll: 30
 
