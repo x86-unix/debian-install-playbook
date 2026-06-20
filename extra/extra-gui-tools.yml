@@ -1,5 +1,5 @@
 ---
-# Install GUI tools (Chrome, VSCode, yazi, etc.)
+# Install GUI tools (Chrome, yazi, etc.)
 
 - name: "Extra: GUI tools"
   hosts: target
@@ -35,31 +35,6 @@
     - name: Install Google Chrome
       ansible.builtin.apt:
         name: google-chrome-stable
-        state: present
-        update_cache: true
-
-    # ── VSCode ────────────────────────────────────────────────────────────────
-    - name: Remove old VSCode keyring if exists
-      ansible.builtin.file:
-        path: /usr/share/keyrings/microsoft.gpg
-        state: absent
-
-    - name: Add VSCode apt key
-      ansible.builtin.shell: |
-        curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
-          | gpg --dearmor --yes -o /etc/apt/keyrings/microsoft.gpg
-      args:
-        creates: /etc/apt/keyrings/microsoft.gpg
-
-    - name: Add VSCode apt repository
-      ansible.builtin.copy:
-        dest: /etc/apt/sources.list.d/vscode.list
-        mode: "0644"
-        content: "deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main\n"
-
-    - name: Install VSCode
-      ansible.builtin.apt:
-        name: code
         state: present
         update_cache: true
 
@@ -120,19 +95,6 @@
           Type=Application
           Icon=google-chrome
           Categories=Network;WebBrowser;
-
-    - name: Override VSCode desktop for Wayland
-      ansible.builtin.copy:
-        dest: /usr/share/applications/code.desktop
-        mode: "0644"
-        content: |
-          [Desktop Entry]
-          Name=Visual Studio Code
-          Exec=/usr/bin/code --ozone-platform=wayland %F
-          Terminal=false
-          Type=Application
-          Icon=vscode
-          Categories=Development;
 
     - name: Create yazi desktop entry
       ansible.builtin.copy:
@@ -215,7 +177,6 @@
         - flameshot.desktop
         - foot-server.desktop
         - footclient.desktop
-        - code-url-handler.desktop
         - fcitx5-wayland-launcher.desktop
         - com.google.Chrome.desktop
         - fcitx5-configtool.desktop

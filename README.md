@@ -23,7 +23,7 @@ extra/
   extra-wayland.yml        # Wayland デスクトップ（labwc + waybar + foot + wofi + wlogout）
   extra-ime.yml            # IME（fcitx5 + SKK）
   extra-remote-desktop.yml # リモートデスクトップ（wayvnc + noVNC + Apache HTTPS + OTP）
-  extra-gui-tools.yml      # GUI ツール（Google Chrome, VSCode, yazi 等）
+  extra-gui-tools.yml      # GUI ツール（Google Chrome, yazi 等）
 
 files/
   frieren-blue-flower-anime-wallpaper-4k.png
@@ -108,7 +108,7 @@ ansible-playbook -i inventory.ini site-extra.yml
 6. Wayland デスクトップ（labwc + waybar + foot + wofi + wlogout）
 7. IME（fcitx5 + SKK）
 8. リモートデスクトップ（wayvnc + noVNC + Apache HTTPS + OTP）
-9. GUI ツール（Google Chrome, VSCode, yazi 等）
+9. GUI ツール（Google Chrome, yazi 等）
 
 ### 4. 個別実行
 
