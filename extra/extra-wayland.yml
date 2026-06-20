@@ -363,7 +363,7 @@
         content: |
           swaybg -i $HOME/.config/labwc/wallpaper.png -m fill &
           waybar &
-          swayidle -w timeout {{ display_idle_timeout | default(3600) }} 'wlopm --off "*"' resume 'wlopm --on "*"' &
+          swayidle -w timeout {{ display_idle_timeout | default(3600) }} 'wlopm --off \*' resume 'wlopm --on \*' &
           fcitx5 -d &
           wayvnc &
           flameshot &

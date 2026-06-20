@@ -29,6 +29,9 @@ files/
   frieren-blue-flower-anime-wallpaper-4k.png
 
 group_vars/all.yml         # 共通設定値
+host_vars/
+  192.168.77.92.yml        # debian-knote 固有変数
+  192.168.77.82.yml        # debian-fujitsu 固有変数
 inventory.ini              # ターゲットホスト定義
 ```
 
@@ -46,6 +49,7 @@ inventory.ini              # ターゲットホスト定義
 ```bash
 vi inventory.ini
 vi group_vars/all.yml
+vi host_vars/<IP>.yml
 ```
 
 主な設定値（`group_vars/all.yml`）：
@@ -55,7 +59,6 @@ vi group_vars/all.yml
 | `target_disk` | インストール先ディスク（例: `/dev/sda`） |
 | `efi_partition` | EFI パーティション（例: `/dev/sda1`） |
 | `root_partition` | root パーティション（例: `/dev/sda2`） |
-| `hostname` | ホスト名 |
 | `timezone` | タイムゾーン（例: `Asia/Tokyo`） |
 | `locale` | ロケール（例: `ja_JP.UTF-8`） |
 | `root_password` | root パスワード（平文、vault 推奨） |
@@ -64,6 +67,12 @@ vi group_vars/all.yml
 | `sudo_nopasswd` | `true` で NOPASSWD sudo を有効化 |
 | `wifi_ssid` | WiFi SSID（WiFi NIC 検出時のみ使用、vault 推奨） |
 | `wifi_password` | WiFi パスワード（vault 推奨） |
+
+ホスト固有変数（`host_vars/<IP>.yml`）：
+
+| 変数 | 説明 |
+|------|------|
+| `hostname` | ホスト名（ホストごとに異なる値を設定） |
 
 ### 2. ベースインストール
 
