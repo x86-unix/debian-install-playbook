@@ -41,6 +41,9 @@
         partprobe {{ target_disk }}
         sleep 2
 
+    - name: Unmount target partitions
+      shell: "umount {{ efi_partition }} {{ root_partition }} 2>/dev/null || true"
+
     - name: Format EFI partition
       shell: mkfs.vfat -F 32 {{ efi_partition }}
 
