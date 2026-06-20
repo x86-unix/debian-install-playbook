@@ -15,9 +15,11 @@
       register: vault_result
       no_log: true
 
-    - name: Warn if vault is not available
-      pause:
-        prompt: "⚠️  警告: vault が有効になっていません。パスワードが平文で送信されます。続行するには Enter を押してください"
+    - name: Abort if vault is not available
+      fail:
+        msg: |
+          vault が有効になっていません。この playbook は vault 必須です。
+          実行例: ansible-playbook -i inventory.ini site-extra.yml --vault-password-file .vault_pass
       when: vault_result is failed
 
 - name: Import account
