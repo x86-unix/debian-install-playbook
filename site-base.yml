@@ -205,6 +205,16 @@
     - name: Set root password
       shell: chroot {{ chroot_dir }} bash -c "echo 'root:{{ root_password }}' | chpasswd"
 
+    - name: Set keyboard layout
+      copy:
+        dest: "{{ chroot_dir }}/etc/default/keyboard"
+        content: |
+          XKBMODEL="pc105"
+          XKBLAYOUT="{{ keyboard_layout | default('us') }}"
+          XKBVARIANT=""
+          XKBOPTIONS="ctrl:nocaps"
+          BACKSPACE="guess"
+
     - name: Install GRUB (UEFI)
       shell: |
         chroot {{ chroot_dir }} grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=debian

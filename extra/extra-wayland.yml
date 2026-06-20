@@ -383,6 +383,7 @@
         owner: "{{ default_user }}"
         mode: "0644"
         content: |
+          XKB_DEFAULT_LAYOUT={{ keyboard_layout | default('us') }}
           XKB_DEFAULT_OPTIONS=ctrl:nocaps
           GTK_IM_MODULE=fcitx
           QT_IM_MODULE=fcitx

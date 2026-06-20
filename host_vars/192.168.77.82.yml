@@ -1,3 +1,4 @@
 hostname: debian-fujitsu
 wallpaper: frieren-end-of-winter-wallpapers.png
 ime_engine: mozc
+keyboard_layout: jp
