@@ -24,7 +24,7 @@
 
     - name: Confirm disk partitioning
       pause:
-        prompt: "{{ target_disk }} will be COMPLETELY ERASED. Type 'yes' to continue, or anything else to skip"
+        prompt: "{{ target_disk }} を完全に消去してパーティションを作成します。実行する場合は 'yes' を入力してください（デフォルト: no）"
       register: confirm_partition
 
     - name: Create GPT partition table and partitions
