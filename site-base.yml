@@ -8,6 +8,18 @@
     DEBIAN_FRONTEND: noninteractive
 
   tasks:
+    - name: Check vault availability
+      set_fact:
+        _vault_check: "{{ wifi_password | default('') }}"
+      ignore_errors: true
+      register: vault_result
+      no_log: true
+
+    - name: Warn if vault is not available
+      pause:
+        prompt: "⚠️  警告: vault が有効になっていません。パスワードが平文で送信されます。続行するには Enter を押してください"
+      when: vault_result is failed
+
     - name: Install debootstrap
       shell: pacman -Sy --noconfirm debootstrap
       args:
