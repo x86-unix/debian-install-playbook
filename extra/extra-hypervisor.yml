@@ -48,6 +48,56 @@
         enabled: true
         state: started
 
+    # ── ブリッジネットワーク（LAN 内から VM に直接アクセス可能） ───────────────
+    - name: Detect primary network interface
+      ansible.builtin.shell: ip route show default | awk '/default/ {print $5; exit}'
+      register: primary_nic
+      changed_when: false
+
+    - name: Get current connection name for primary NIC
+      ansible.builtin.shell: nmcli -t -f NAME,DEVICE con show --active | grep ':{{ primary_nic.stdout }}$' | cut -d':' -f1
+      register: current_conn
+      changed_when: false
+
+    - name: Check if bridge br0 already exists
+      ansible.builtin.shell: nmcli -t -f NAME con show | grep -q '^br0$'
+      register: br0_exists
+      changed_when: false
+      failed_when: false
+
+    - name: Create bridge br0
+      ansible.builtin.shell: |
+        nmcli con add type bridge ifname br0 con-name br0
+        nmcli con add type bridge-slave ifname {{ primary_nic.stdout }} master br0
+        nmcli con down "{{ current_conn.stdout }}" || true
+        nmcli con up br0
+      when: br0_exists.rc != 0
+
+    - name: Define libvirt bridged network
+      ansible.builtin.copy:
+        dest: /tmp/br0-net.xml
+        mode: "0644"
+        content: |
+          <network>
+            <name>br0</name>
+            <forward mode="bridge"/>
+            <bridge name="br0"/>
+          </network>
+      when: br0_exists.rc != 0
+
+    - name: Check if libvirt br0 network exists
+      ansible.builtin.shell: virsh net-list --all --name | grep -q '^br0$'
+      register: libvirt_br0_exists
+      changed_when: false
+      failed_when: false
+
+    - name: Register libvirt bridged network
+      ansible.builtin.shell: |
+        virsh net-define /tmp/br0-net.xml
+        virsh net-start br0
+        virsh net-autostart br0
+      when: libvirt_br0_exists.rc != 0
+
     # ── wayvnc / noVNC ────────────────────────────────────────────────────────
     - name: Install wayvnc, novnc, websockify and apache2
       ansible.builtin.apt:
