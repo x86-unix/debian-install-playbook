@@ -1,0 +1,6 @@
+---
+# KVM Hypervisor setup - run AFTER site-extra.yml (excluding extra-remote-desktop.yml)
+# Usage: ansible-playbook -i inventory.ini site-hypervisor.yml
+
+- name: Import hypervisor
+  ansible.builtin.import_playbook: extra/extra-hypervisor.yml

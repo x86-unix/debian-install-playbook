@@ -1,0 +1,149 @@
+---
+# KVM hypervisor + virt-manager + noVNC (HTTP, no auth)
+# Access: http://<host>/
+
+- name: "Extra: KVM Hypervisor (virt-manager + noVNC)"
+  hosts: hypervisor
+  gather_facts: false
+
+  tasks:
+    # ── CPU 仮想化支援チェック ─────────────────────────────────────────────────
+    - name: Check CPU virtualization support
+      ansible.builtin.shell: grep -cE '(vmx|svm)' /proc/cpuinfo
+      register: virt_check
+      changed_when: false
+      failed_when: false
+
+    - name: Fail if no virtualization support
+      ansible.builtin.fail:
+        msg: "CPU 仮想化支援（VT-x/AMD-V）が検出されません。BIOS/UEFI で有効にしてください。"
+      when: virt_check.rc != 0
+
+    # ── KVM + virt-manager ────────────────────────────────────────────────────
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+      failed_when: false
+      changed_when: false
+
+    - name: Install KVM and virt-manager
+      ansible.builtin.apt:
+        name:
+          - qemu-kvm
+          - libvirt-daemon-system
+          - libvirt-clients
+          - virtinst
+          - virt-manager
+        state: present
+
+    - name: Add default_user to libvirt group
+      ansible.builtin.user:
+        name: "{{ default_user }}"
+        groups: libvirt
+        append: true
+
+    - name: Enable and start libvirtd
+      ansible.builtin.systemd:
+        name: libvirtd
+        enabled: true
+        state: started
+
+    # ── wayvnc / noVNC ────────────────────────────────────────────────────────
+    - name: Install wayvnc, novnc, websockify and apache2
+      ansible.builtin.apt:
+        name:
+          - wayvnc
+          - novnc
+          - websockify
+          - apache2
+        state: present
+
+    - name: Ensure wayvnc config directory
+      ansible.builtin.file:
+        path: /home/{{ default_user }}/.config/wayvnc
+        state: directory
+        owner: "{{ default_user }}"
+        mode: "0700"
+
+    - name: Configure wayvnc (localhost only, no auth)
+      ansible.builtin.copy:
+        dest: /home/{{ default_user }}/.config/wayvnc/config
+        owner: "{{ default_user }}"
+        group: "{{ default_user }}"
+        mode: "0600"
+        content: |
+          address=127.0.0.1
+          enable_auth=false
+
+    - name: Add wayvnc to labwc autostart
+      ansible.builtin.lineinfile:
+        path: /home/{{ default_user }}/.config/labwc/autostart
+        line: "wayvnc &"
+        create: true
+        owner: "{{ default_user }}"
+        group: "{{ default_user }}"
+        mode: "0755"
+
+    - name: Create novnc systemd service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/novnc.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=noVNC WebSocket bridge
+          After=network.target
+
+          [Service]
+          ExecStart=/usr/bin/websockify --web /usr/share/novnc 127.0.0.1:6080 127.0.0.1:5900
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable and start novnc service
+      ansible.builtin.systemd:
+        name: novnc
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    # ── Apache HTTP リバースプロキシ ──────────────────────────────────────────
+    - name: Enable required Apache modules
+      ansible.builtin.command: a2enmod {{ item }}
+      loop:
+        - proxy
+        - proxy_http
+        - proxy_wstunnel
+        - rewrite
+      changed_when: false
+
+    - name: Disable default Apache site
+      ansible.builtin.command: a2dissite 000-default
+      changed_when: false
+
+    - name: Deploy noVNC Apache vhost (HTTP, no auth)
+      ansible.builtin.copy:
+        dest: /etc/apache2/sites-available/novnc.conf
+        mode: "0644"
+        content: |
+          Listen 0.0.0.0:80
+
+          <VirtualHost *:80>
+              ProxyPass /websockify ws://localhost:6080/websockify
+              ProxyPassReverse /websockify ws://localhost:6080/websockify
+              ProxyPass / http://localhost:6080/
+              ProxyPassReverse / http://localhost:6080/
+
+              RewriteEngine On
+              RewriteRule ^/$ /vnc.html [R,L]
+          </VirtualHost>
+
+    - name: Enable noVNC Apache site
+      ansible.builtin.command: a2ensite novnc
+      changed_when: false
+
+    - name: Enable and start Apache
+      ansible.builtin.service:
+        name: apache2
+        enabled: true
+        state: started
