@@ -23,7 +23,7 @@ extra/
   extra-bluetooth.yml      # Bluetooth（bluez + blueman、ハード検出付き）
   extra-wayland.yml        # Wayland デスクトップ（labwc + waybar + foot + wofi + wlogout）
   extra-ime.yml            # IME（fcitx5 + SKK）
-  extra-remote-desktop.yml # リモートデスクトップ（wayvnc + noVNC + Apache HTTPS + OTP）
+  extra-remote-desktop.yml # リモートデスクトップ（wayvnc + noVNC + Apache HTTPS + OTP + fail2ban）
   extra-hypervisor.yml   # KVM ハイパーバイザー（virt-manager + noVNC HTTP）
   extra-gui-tools.yml      # GUI ツール（Google Chrome, yazi 等）
 
@@ -109,7 +109,7 @@ ansible-playbook -i inventory.ini site-extra.yml
 5. Bluetooth（bluez + blueman、ハード検出付き）
 6. Wayland デスクトップ（labwc + waybar + foot + wofi + wlogout）
 7. IME（fcitx5 + SKK）
-8. リモートデスクトップ（wayvnc + noVNC + Apache HTTPS + OTP）
+8. リモートデスクトップ（wayvnc + noVNC + Apache HTTPS + OTP + fail2ban）
 9. GUI ツール（Google Chrome, yazi 等）
 
 ### 4. 個別実行
@@ -152,6 +152,24 @@ cat /var/www/otp/users
 
 - OTP セッションは 8 時間有効（`OTPAuthMaxLinger 28800`）
 - 証明書を Let's Encrypt 等に差し替える場合は `/etc/ssl/apache2/server.{crt,key}` を置き換えて `systemctl restart apache2`
+
+### fail2ban（OTP ブルートフォース対策）
+
+`extra-remote-desktop.yml` は fail2ban を導入し、noVNC(OTP) への総当たりを自動 ban する。
+
+- `mod_authn_otp` は認証失敗を `[:notice]` レベルで出力するため、標準の `apache-auth`
+  フィルタでは捕捉できない。専用フィルタ `apache-otp` を配備してこれを捕捉する
+  - 配備物: `/etc/fail2ban/filter.d/apache-otp.conf` / `/etc/fail2ban/jail.d/apache-otp.local`
+  - 捕捉対象: 存在しないユーザでの試行、正規ユーザへの OTP 総当たり、認証スキーム誤り
+  - ban ルール: 10 分間に 5 回失敗で 1 時間 ban、再犯は最大 1 週間まで指数的に延長
+- 監視ログ: `/var/log/apache2/ssl_error_log`・`/var/log/apache2/error.log`
+
+```bash
+# 状態確認
+fail2ban-client status apache-otp
+# フィルタが実ログにマッチするか検証
+fail2ban-regex /var/log/apache2/ssl_error_log /etc/fail2ban/filter.d/apache-otp.conf
+```
 
 ### ポートバインド確認
 

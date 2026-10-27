@@ -12,6 +12,11 @@
         name: apache2
         state: reloaded
 
+    - name: reload fail2ban
+      ansible.builtin.service:
+        name: fail2ban
+        state: reloaded
+
   tasks:
     # ── wayvnc / novnc ────────────────────────────────────────────────────────
     - name: Install wayvnc, novnc and websockify
@@ -228,5 +233,67 @@
     - name: Enable and start Apache
       ansible.builtin.service:
         name: apache2
+        enabled: true
+        state: started
+
+    # ── fail2ban (noVNC OTP ブルートフォース対策) ──────────────────────────────
+    # mod_authn_otp は認証失敗を [:notice] レベルで出力するため、標準の
+    # apache-auth フィルタでは捕捉できない。専用フィルタ apache-otp を追加し、
+    # OTP 総当たり・存在しないユーザでの試行などを ban する。
+    - name: Install fail2ban
+      ansible.builtin.apt:
+        name: fail2ban
+        state: present
+        update_cache: true
+
+    - name: Deploy fail2ban filter for mod_authn_otp
+      ansible.builtin.copy:
+        dest: /etc/fail2ban/filter.d/apache-otp.conf
+        mode: "0644"
+        content: |
+          # Fail2Ban filter for mod_authn_otp (Apache noVNC OTP auth)
+          # mod_authn_otp は [:notice] レベルで出力するため、標準 apache-auth では
+          # 捕捉できない。本フィルタはその notice ログと標準 AH01618 等を捕捉する。
+          [INCLUDES]
+          before = apache-common.conf
+
+          [Definition]
+
+          # 日付 [Mon Oct 12 ...] は datepattern が処理。
+          # module プレフィクスは [:notice] / [auth_basic:error] 等いずれも許容。
+          prefregex = ^%(apache-prefix)s\[(?:\S*:\S+|error)\](?: \[pid \d+(?::\S+ \d+)?\])? \[client <HOST>(?::\d+)?\] <F-CONTENT>.+</F-CONTENT>$
+
+          failregex = ^user "[^"]*" not found in OTP users file\b
+                      ^AH01618: user \S* not found\b
+                      ^user "[^"]*" provided the wrong OTP \(\d+/\d+ consecutive\)
+                      ^AH01614: client used wrong authentication scheme\b
+
+          ignoreregex =
+      notify: reload fail2ban
+
+    - name: Deploy fail2ban jail for noVNC OTP
+      ansible.builtin.copy:
+        dest: /etc/fail2ban/jail.d/apache-otp.local
+        mode: "0644"
+        content: |
+          # noVNC OTP 認証(mod_authn_otp)へのブルートフォース対策
+          # 標準 apache ジェイルでは [:notice] レベルの OTP ログを拾えないため追加。
+          [apache-otp]
+          enabled   = true
+          port      = http,https
+          filter    = apache-otp
+          logpath   = /var/log/apache2/ssl_error_log
+                     /var/log/apache2/error.log
+          maxretry  = 5
+          findtime  = 10m
+          bantime   = 1h
+          # 再犯で ban 時間を指数的に延長
+          bantime.increment = true
+          bantime.maxtime   = 1w
+      notify: reload fail2ban
+
+    - name: Enable and start fail2ban
+      ansible.builtin.service:
+        name: fail2ban
         enabled: true
         state: started
